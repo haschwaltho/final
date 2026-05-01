@@ -1,9 +1,120 @@
+/* ── i18n ── */
+const TRANSLATIONS = {
+  ru: {
+    new_chat:               "Новый чат",
+    projects_label:         "Проекты",
+    new_project:            "Новый проект",
+    history_empty:          "История чатов появится здесь",
+    clear_history:          "Очистить историю",
+    agent_label:            "AI Agent",
+    welcome_title:          "Чем могу помочь?",
+    suggestion_quantum:     "Объясни квантовые вычисления",
+    suggestion_quantum_text:"Объясни квантовые вычисления простыми словами",
+    suggestion_python:      "Напиши код на Python",
+    suggestion_python_text: "Напиши функцию на Python для сортировки списка",
+    suggestion_story:       "Напиши творческий рассказ",
+    suggestion_story_text:  "Придумай короткий рассказ о путешествии во времени",
+    suggestion_business:    "Помоги с бизнес-планом",
+    suggestion_business_text:"Составь план для запуска небольшого онлайн-бизнеса",
+    input_placeholder:      "Напишите сообщение...",
+    disclaimer:             "AI может ошибаться. Проверяйте важную информацию.",
+    no_chats:               "Нет чатов",
+    project_name_placeholder:"Название проекта",
+    delete_chat:            "Удалить чат",
+    delete_project:         "Удалить проект",
+    copy_btn:               "Копировать",
+    copied_btn:             "Скопировано",
+    copied_toast:           "Скопировано в буфер!",
+    history_cleared_toast:  "История очищена",
+    error_server:           "Не удалось подключиться к серверу. Проверьте соединение.",
+    default_project_name:   "Новый проект",
+  },
+  en: {
+    new_chat:               "New Chat",
+    projects_label:         "Projects",
+    new_project:            "New Project",
+    history_empty:          "Chat history will appear here",
+    clear_history:          "Clear History",
+    agent_label:            "AI Agent",
+    welcome_title:          "How can I help?",
+    suggestion_quantum:     "Explain quantum computing",
+    suggestion_quantum_text:"Explain quantum computing in simple terms",
+    suggestion_python:      "Write Python code",
+    suggestion_python_text: "Write a Python function to sort a list",
+    suggestion_story:       "Write a creative story",
+    suggestion_story_text:  "Write a short story about time travel",
+    suggestion_business:    "Help with a business plan",
+    suggestion_business_text:"Create a plan for launching a small online business",
+    input_placeholder:      "Write a message...",
+    disclaimer:             "AI can make mistakes. Verify important information.",
+    no_chats:               "No chats",
+    project_name_placeholder:"Project name",
+    delete_chat:            "Delete chat",
+    delete_project:         "Delete project",
+    copy_btn:               "Copy",
+    copied_btn:             "Copied",
+    copied_toast:           "Copied to clipboard!",
+    history_cleared_toast:  "History cleared",
+    error_server:           "Could not connect to the server. Check your connection.",
+    default_project_name:   "New Project",
+  },
+  kk: {
+    new_chat:               "Жаңа чат",
+    projects_label:         "Жобалар",
+    new_project:            "Жаңа жоба",
+    history_empty:          "Чат тарихы осында пайда болады",
+    clear_history:          "Тарихты тазалау",
+    agent_label:            "AI Агент",
+    welcome_title:          "Қалай көмектесе аламын?",
+    suggestion_quantum:     "Кванттық есептеуді түсіндір",
+    suggestion_quantum_text:"Кванттық есептеуді қарапайым тілмен түсіндір",
+    suggestion_python:      "Python кодын жаз",
+    suggestion_python_text: "Тізімді сұрыптауға арналған Python функциясын жаз",
+    suggestion_story:       "Шығармашылық әңгіме жаз",
+    suggestion_story_text:  "Уақыт саяхаты туралы қысқа әңгіме жаз",
+    suggestion_business:    "Бизнес-жоспарға көмектес",
+    suggestion_business_text:"Шағын онлайн-бизнесті іске қосу жоспарын жаса",
+    input_placeholder:      "Хабарлама жазыңыз...",
+    disclaimer:             "AI қателесуі мүмкін. Маңызды ақпаратты тексеріңіз.",
+    no_chats:               "Чаттар жоқ",
+    project_name_placeholder:"Жоба атауы",
+    delete_chat:            "Чатты жою",
+    delete_project:         "Жобаны жою",
+    copy_btn:               "Көшіру",
+    copied_btn:             "Көшірілді",
+    copied_toast:           "Алмасу буферіне көшірілді!",
+    history_cleared_toast:  "Тарих тазаланды",
+    error_server:           "Серверге қосылу мүмкін болмады. Байланысыңызды тексеріңіз.",
+    default_project_name:   "Жаңа жоба",
+  },
+};
+
+const LANG_FLAGS = { ru: "🇷🇺", en: "🇬🇧", kk: "🇰🇿" };
+let currentLang = localStorage.getItem("lang") || "ru";
+
+function t(key) {
+  return (TRANSLATIONS[currentLang] || TRANSLATIONS.ru)[key] || key;
+}
+
+function applyLang() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll(".suggestion-card").forEach((card) => {
+    if (card.dataset.i18nText) card.dataset.text = t(card.dataset.i18nText);
+  });
+  const flagEl = document.getElementById("langFlag");
+  if (flagEl) flagEl.textContent = LANG_FLAGS[currentLang] || "🌐";
+  document.querySelectorAll(".lang-option").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.lang === currentLang);
+  });
+}
+
 /* ── Marked.js config ── */
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-  highlight: null,
-});
+marked.setOptions({ breaks: true, gfm: true, highlight: null });
 
 const renderer = new marked.Renderer();
 
@@ -24,7 +135,7 @@ renderer.code = function (code, language) {
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
         </svg>
-        Копировать
+        ${t("copy_btn")}
       </button>
     </div>
     <pre><code class="hljs ${lang}">${highlighted}</code></pre>
@@ -252,7 +363,7 @@ async function sendMessage() {
         } else if (evt.type === "done") {
           break;
         } else if (evt.type === "error") {
-          fullText += `\n\n⚠️ Ошибка: ${evt.message}`;
+          fullText += `\n\n⚠️ ${evt.message}`;
           bubble.innerHTML = marked.parse(fullText);
           scrollToBottom();
           break;
@@ -261,11 +372,9 @@ async function sendMessage() {
     }
   } catch (err) {
     if (err.name !== "AbortError") {
-      if (fullText) {
-        fullText += "\n\n⚠️ Соединение прервано.";
-      } else {
-        fullText = "⚠️ Не удалось подключиться к серверу. Проверьте соединение.";
-      }
+      fullText = fullText
+        ? fullText + "\n\n⚠️ " + t("error_server")
+        : "⚠️ " + t("error_server");
     }
   }
 
@@ -324,7 +433,7 @@ function buildConvItem(conv) {
 
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "history-item-delete";
-  deleteBtn.title = "Удалить чат";
+  deleteBtn.title = t("delete_chat");
   deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <polyline points="3 6 5 6 21 6"/>
     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -345,7 +454,7 @@ function renderHistory() {
   const unorganized = conversations.filter((c) => !c.projectId);
 
   if (unorganized.length === 0) {
-    chatHistory.innerHTML = '<p class="history-empty">История чатов появится здесь</p>';
+    chatHistory.innerHTML = `<p class="history-empty">${t("history_empty")}</p>`;
     return;
   }
 
@@ -390,7 +499,7 @@ function renderProjects() {
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "history-item-delete";
-    deleteBtn.title = "Удалить проект";
+    deleteBtn.title = t("delete_project");
     deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <polyline points="3 6 5 6 21 6"/>
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -406,7 +515,6 @@ function renderProjects() {
     header.appendChild(icon);
     header.appendChild(name);
     header.appendChild(deleteBtn);
-
     header.addEventListener("click", () => toggleProject(project.id));
 
     const chatsDiv = document.createElement("div");
@@ -415,7 +523,7 @@ function renderProjects() {
     if (projectConvs.length === 0) {
       const empty = document.createElement("p");
       empty.className = "project-chats-empty";
-      empty.textContent = "Нет чатов";
+      empty.textContent = t("no_chats");
       chatsDiv.appendChild(empty);
     } else {
       projectConvs.forEach((conv) => chatsDiv.appendChild(buildConvItem(conv)));
@@ -440,7 +548,7 @@ function toggleProject(id) {
 }
 
 function createProject(name) {
-  const project = { id: Date.now().toString(), name: name || "Новый проект" };
+  const project = { id: Date.now().toString(), name: name || t("default_project_name") };
   projects.unshift(project);
   saveProjects();
   expandedProjects.add(project.id);
@@ -477,7 +585,7 @@ function showNewProjectInput() {
   const input = document.createElement("input");
   input.type = "text";
   input.className = "project-name-input";
-  input.placeholder = "Название проекта";
+  input.placeholder = t("project_name_placeholder");
   input.maxLength = 60;
 
   row.appendChild(icon);
@@ -525,7 +633,7 @@ function clearAllHistory() {
   welcome.style.display = "flex";
   messagesEl.style.display = "none";
   renderHistory();
-  showToast("История очищена");
+  showToast(t("history_cleared_toast"));
 }
 
 function loadConversation(id) {
@@ -570,19 +678,41 @@ function scrollToBottom() {
 function copyCode(btn) {
   const code = btn.closest(".code-block").querySelector("code").innerText;
   navigator.clipboard.writeText(code).then(() => {
-    showToast("Скопировано в буфер!");
+    showToast(t("copied_toast"));
     btn.classList.add("copied");
-    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Скопировано`;
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ${t("copied_btn")}`;
     setTimeout(() => {
       btn.classList.remove("copied");
-      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать`;
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> ${t("copy_btn")}`;
     }, 2000);
   });
 }
 
+/* ── Language selector ── */
+document.getElementById("langBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  document.getElementById("langDropdown").classList.toggle("open");
+});
+
+document.querySelectorAll(".lang-option").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    currentLang = btn.dataset.lang;
+    localStorage.setItem("lang", currentLang);
+    document.getElementById("langDropdown").classList.remove("open");
+    applyLang();
+    renderHistory();
+    renderProjects();
+  });
+});
+
+document.addEventListener("click", () => {
+  document.getElementById("langDropdown")?.classList.remove("open");
+});
+
 /* ── Init ── */
 document.getElementById("clearHistoryBtn").addEventListener("click", clearAllHistory);
 
+applyLang();
 renderProjects();
 renderHistory();
 userInput.focus();
