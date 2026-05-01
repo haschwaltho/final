@@ -39,7 +39,10 @@ const STOP_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="current
 
 /* ── State ── */
 let conversations = JSON.parse(localStorage.getItem("conversations") || "[]");
+let projects = JSON.parse(localStorage.getItem("projects") || "[]");
 let currentConvId = null;
+let currentProjectId = null;
+let expandedProjects = new Set(JSON.parse(localStorage.getItem("expandedProjects") || "[]"));
 let isStreaming = false;
 let abortController = null;
 
@@ -171,9 +174,11 @@ async function sendMessage() {
       id: currentConvId,
       title: text.slice(0, 45) + (text.length > 45 ? "…" : ""),
       messages: [],
+      projectId: currentProjectId || null,
     });
     saveConversations();
     renderHistory();
+    if (currentProjectId) renderProjects();
   }
 
   const conv = getConv();
@@ -307,26 +312,85 @@ function appendMessage(role, content) {
 }
 
 /* ── History ── */
+function buildConvItem(conv) {
+  const item = document.createElement("div");
+  item.className = "history-item" + (conv.id === currentConvId ? " active" : "");
+
+  const title = document.createElement("span");
+  title.className = "history-item-title";
+  title.textContent = conv.title;
+  title.title = conv.title;
+  title.addEventListener("click", () => loadConversation(conv.id));
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "history-item-delete";
+  deleteBtn.title = "Удалить чат";
+  deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+    <path d="M10 11v6M14 11v6"/>
+    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+  </svg>`;
+  deleteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    deleteConversation(conv.id);
+  });
+
+  item.appendChild(title);
+  item.appendChild(deleteBtn);
+  return item;
+}
+
 function renderHistory() {
-  if (conversations.length === 0) {
+  const unorganized = conversations.filter((c) => !c.projectId);
+
+  if (unorganized.length === 0) {
     chatHistory.innerHTML = '<p class="history-empty">История чатов появится здесь</p>';
     return;
   }
 
   chatHistory.innerHTML = "";
-  conversations.forEach((conv) => {
-    const item = document.createElement("div");
-    item.className = "history-item" + (conv.id === currentConvId ? " active" : "");
+  unorganized.forEach((conv) => chatHistory.appendChild(buildConvItem(conv)));
+}
 
-    const title = document.createElement("span");
-    title.className = "history-item-title";
-    title.textContent = conv.title;
-    title.title = conv.title;
-    title.addEventListener("click", () => loadConversation(conv.id));
+/* ── Projects ── */
+function saveProjects() {
+  localStorage.setItem("projects", JSON.stringify(projects));
+}
+
+function saveExpandedProjects() {
+  localStorage.setItem("expandedProjects", JSON.stringify([...expandedProjects]));
+}
+
+function renderProjects() {
+  const container = document.getElementById("projectsList");
+  container.innerHTML = "";
+
+  projects.forEach((project) => {
+    const projectConvs = conversations.filter((c) => c.projectId === project.id);
+    const isExpanded = expandedProjects.has(project.id);
+
+    const item = document.createElement("div");
+    item.className = "project-item" + (isExpanded ? " expanded" : "");
+
+    const header = document.createElement("div");
+    header.className = "project-item-header" + (currentProjectId === project.id ? " active" : "");
+
+    const chevron = document.createElement("span");
+    chevron.className = "project-chevron";
+    chevron.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+    const icon = document.createElement("span");
+    icon.className = "project-icon";
+    icon.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+
+    const name = document.createElement("span");
+    name.className = "project-name";
+    name.textContent = project.name;
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "history-item-delete";
-    deleteBtn.title = "Удалить чат";
+    deleteBtn.title = "Удалить проект";
     deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <polyline points="3 6 5 6 21 6"/>
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -335,16 +399,112 @@ function renderHistory() {
     </svg>`;
     deleteBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      deleteConversation(conv.id);
+      deleteProject(project.id);
     });
 
-    item.appendChild(title);
-    item.appendChild(deleteBtn);
-    chatHistory.appendChild(item);
+    header.appendChild(chevron);
+    header.appendChild(icon);
+    header.appendChild(name);
+    header.appendChild(deleteBtn);
+
+    header.addEventListener("click", () => toggleProject(project.id));
+
+    const chatsDiv = document.createElement("div");
+    chatsDiv.className = "project-chats";
+
+    if (projectConvs.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "project-chats-empty";
+      empty.textContent = "Нет чатов";
+      chatsDiv.appendChild(empty);
+    } else {
+      projectConvs.forEach((conv) => chatsDiv.appendChild(buildConvItem(conv)));
+    }
+
+    item.appendChild(header);
+    item.appendChild(chatsDiv);
+    container.appendChild(item);
   });
 }
 
+function toggleProject(id) {
+  if (expandedProjects.has(id)) {
+    expandedProjects.delete(id);
+    if (currentProjectId === id) currentProjectId = null;
+  } else {
+    expandedProjects.add(id);
+    currentProjectId = id;
+  }
+  saveExpandedProjects();
+  renderProjects();
+}
+
+function createProject(name) {
+  const project = { id: Date.now().toString(), name: name || "Новый проект" };
+  projects.unshift(project);
+  saveProjects();
+  expandedProjects.add(project.id);
+  currentProjectId = project.id;
+  saveExpandedProjects();
+  renderProjects();
+}
+
+function deleteProject(id) {
+  conversations.forEach((c) => { if (c.projectId === id) c.projectId = null; });
+  saveConversations();
+  projects = projects.filter((p) => p.id !== id);
+  saveProjects();
+  if (currentProjectId === id) currentProjectId = null;
+  expandedProjects.delete(id);
+  saveExpandedProjects();
+  renderProjects();
+  renderHistory();
+}
+
+function showNewProjectInput() {
+  const container = document.getElementById("projectsList");
+  const existing = container.querySelector(".project-new-row");
+  if (existing) { existing.querySelector("input").focus(); return; }
+
+  const row = document.createElement("div");
+  row.className = "project-item-header project-new-row";
+
+  const icon = document.createElement("span");
+  icon.className = "project-icon";
+  icon.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+  icon.style.color = "var(--accent)";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "project-name-input";
+  input.placeholder = "Название проекта";
+  input.maxLength = 60;
+
+  row.appendChild(icon);
+  row.appendChild(input);
+  container.prepend(row);
+  input.focus();
+
+  let confirmed = false;
+  function confirm() {
+    if (confirmed) return;
+    confirmed = true;
+    const name = input.value.trim();
+    row.remove();
+    if (name) createProject(name);
+  }
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); confirm(); }
+    if (e.key === "Escape") { confirmed = true; row.remove(); }
+  });
+  input.addEventListener("blur", confirm);
+}
+
+document.getElementById("newProjectBtn").addEventListener("click", showNewProjectInput);
+
 function deleteConversation(id) {
+  const had_project = conversations.find((c) => c.id === id)?.projectId;
   conversations = conversations.filter((c) => c.id !== id);
   saveConversations();
   if (currentConvId === id) {
@@ -354,6 +514,7 @@ function deleteConversation(id) {
     messagesEl.style.display = "none";
   }
   renderHistory();
+  if (had_project) renderProjects();
 }
 
 function clearAllHistory() {
@@ -372,6 +533,8 @@ function loadConversation(id) {
   const conv = getConv();
   if (!conv) return;
 
+  currentProjectId = conv.projectId || null;
+
   welcome.style.display = "none";
   messagesEl.style.display = "flex";
   messagesEl.innerHTML = "";
@@ -381,6 +544,7 @@ function loadConversation(id) {
   });
 
   renderHistory();
+  renderProjects();
   scrollToBottom();
 
   if (window.innerWidth <= 768) {
@@ -419,5 +583,6 @@ function copyCode(btn) {
 /* ── Init ── */
 document.getElementById("clearHistoryBtn").addEventListener("click", clearAllHistory);
 
+renderProjects();
 renderHistory();
 userInput.focus();
