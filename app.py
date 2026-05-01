@@ -20,6 +20,7 @@ def index():
 def chat():
     data = request.get_json()
     messages = data.get("messages", [])
+    session_id = data.get("sessionId")
 
     def generate():
         try:
@@ -31,6 +32,7 @@ def chat():
             response = requests.post(
                 N8N_WEBHOOK_URL,
                 json={
+                    "sessionId": session_id,
                     "messages": messages
                 },
                 timeout=60
