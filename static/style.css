@@ -109,6 +109,11 @@ body {
   color: var(--text-primary);
 }
 
+/* In topbar context, hide on mobile (mobile uses sidebar-toggle-mobile) */
+.topbar .sidebar-toggle {
+  display: flex;
+}
+
 /* ── Sidebar Body (scrollable middle) ── */
 .sidebar-body {
   flex: 1;
@@ -796,7 +801,7 @@ textarea::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4p
     transform: translateX(-100%);
   }
 
-  .sidebar-toggle { display: none; }
+  .topbar .sidebar-toggle { display: none; }
   .sidebar-toggle-mobile { display: flex; }
 
   .suggestion-grid {
