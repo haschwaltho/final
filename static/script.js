@@ -175,7 +175,10 @@ async function sendMessage() {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: conv.messages }),
+      body: JSON.stringify({
+        sessionId: currentConvId,
+        messages: conv.messages
+      }),
     });
 
     const reader = response.body.getReader();
