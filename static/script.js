@@ -33,10 +33,15 @@ renderer.code = function (code, language) {
 
 marked.use({ renderer });
 
+/* ── Icon templates ── */
+const SEND_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`;
+const STOP_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>`;
+
 /* ── State ── */
 let conversations = JSON.parse(localStorage.getItem("conversations") || "[]");
 let currentConvId = null;
 let isStreaming = false;
+let abortController = null;
 
 /* ── DOM refs ── */
 const sidebar = document.getElementById("sidebar");
@@ -108,16 +113,34 @@ document.querySelectorAll(".suggestion-card").forEach((card) => {
   });
 });
 
+/* ── Scroll-to-bottom button ── */
+const scrollToBottomBtn = document.getElementById("scrollToBottom");
+chatArea.addEventListener("scroll", () => {
+  const nearBottom = chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight < 100;
+  scrollToBottomBtn.classList.toggle("visible", !nearBottom);
+});
+scrollToBottomBtn.addEventListener("click", scrollToBottom);
+
+/* ── Toast ── */
+function showToast(message) {
+  const container = document.getElementById("toastContainer");
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 2100);
+}
+
 /* ── Input handling ── */
 userInput.addEventListener("input", () => {
   adjustHeight();
-  sendBtn.disabled = userInput.value.trim() === "" || isStreaming;
+  if (!isStreaming) sendBtn.disabled = userInput.value.trim() === "";
 });
 
 userInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
-    if (!sendBtn.disabled) sendMessage();
+    if (!isStreaming && !sendBtn.disabled) sendMessage();
   }
 });
 
@@ -126,18 +149,22 @@ function adjustHeight() {
   userInput.style.height = Math.min(userInput.scrollHeight, 200) + "px";
 }
 
-/* ── Send message ── */
-sendBtn.addEventListener("click", sendMessage);
+/* ── Send / Stop ── */
+sendBtn.addEventListener("click", () => {
+  if (isStreaming) {
+    abortController?.abort();
+  } else {
+    sendMessage();
+  }
+});
 
 async function sendMessage() {
   const text = userInput.value.trim();
   if (!text || isStreaming) return;
 
-  // Hide welcome, show messages
   welcome.style.display = "none";
   messagesEl.style.display = "flex";
 
-  // Init conversation
   if (!currentConvId) {
     currentConvId = Date.now().toString();
     conversations.unshift({
@@ -153,19 +180,24 @@ async function sendMessage() {
   conv.messages.push({ role: "user", content: text });
   saveConversations();
 
-  // Render user message
   appendMessage("user", text);
 
   userInput.value = "";
   userInput.style.height = "auto";
-  sendBtn.disabled = true;
   isStreaming = true;
+  abortController = new AbortController();
+  sendBtn.disabled = false;
+  sendBtn.classList.add("stop");
+  sendBtn.innerHTML = STOP_ICON;
 
-  // Render assistant bubble
   const bubble = appendMessage("assistant", "");
+  const typingEl = document.createElement("div");
+  typingEl.className = "typing-dots";
+  typingEl.innerHTML = "<span></span><span></span><span></span>";
+  bubble.appendChild(typingEl);
   const cursor = document.createElement("span");
   cursor.className = "cursor";
-  bubble.appendChild(cursor);
+  let hasFirstToken = false;
 
   scrollToBottom();
 
@@ -179,6 +211,7 @@ async function sendMessage() {
         sessionId: currentConvId,
         messages: conv.messages
       }),
+      signal: abortController.signal,
     });
 
     const reader = response.body.getReader();
@@ -202,6 +235,11 @@ async function sendMessage() {
         try { evt = JSON.parse(raw); } catch { continue; }
 
         if (evt.type === "delta") {
+          if (!hasFirstToken) {
+            hasFirstToken = true;
+            typingEl.remove();
+            bubble.appendChild(cursor);
+          }
           fullText += evt.content;
           bubble.innerHTML = marked.parse(fullText);
           bubble.appendChild(cursor);
@@ -217,19 +255,31 @@ async function sendMessage() {
       }
     }
   } catch (err) {
-    fullText = "⚠️ Не удалось подключиться к серверу. Проверьте соединение.";
-    bubble.innerHTML = marked.parse(fullText);
-    scrollToBottom();
+    if (err.name !== "AbortError") {
+      if (fullText) {
+        fullText += "\n\n⚠️ Соединение прервано.";
+      } else {
+        fullText = "⚠️ Не удалось подключиться к серверу. Проверьте соединение.";
+      }
+    }
   }
 
+  typingEl.remove();
   cursor.remove();
-  bubble.innerHTML = marked.parse(fullText);
+
+  if (!fullText) {
+    bubble.closest(".message")?.remove();
+  } else {
+    bubble.innerHTML = marked.parse(fullText);
+    conv.messages.push({ role: "assistant", content: fullText });
+    saveConversations();
+  }
+
   scrollToBottom();
-
-  conv.messages.push({ role: "assistant", content: fullText });
-  saveConversations();
-
   isStreaming = false;
+  abortController = null;
+  sendBtn.innerHTML = SEND_ICON;
+  sendBtn.classList.remove("stop");
   sendBtn.disabled = userInput.value.trim() === "";
 }
 
@@ -314,6 +364,7 @@ function clearAllHistory() {
   welcome.style.display = "flex";
   messagesEl.style.display = "none";
   renderHistory();
+  showToast("История очищена");
 }
 
 function loadConversation(id) {
@@ -355,6 +406,7 @@ function scrollToBottom() {
 function copyCode(btn) {
   const code = btn.closest(".code-block").querySelector("code").innerText;
   navigator.clipboard.writeText(code).then(() => {
+    showToast("Скопировано в буфер!");
     btn.classList.add("copied");
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Скопировано`;
     setTimeout(() => {
