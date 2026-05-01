@@ -128,31 +128,90 @@ body {
 }
 
 .history-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s;
 }
 
 .history-item:hover {
   background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 .history-item.active {
   background: var(--bg-secondary);
+}
+
+.history-item-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+.history-item:hover .history-item-title,
+.history-item.active .history-item-title {
   color: var(--text-primary);
+}
+
+.history-item-delete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.history-item:hover .history-item-delete {
+  opacity: 1;
+}
+
+.history-item-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }
 
 /* ── Sidebar Footer ── */
 .sidebar-footer {
   border-top: 1px solid var(--border);
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clear-history-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.clear-history-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .user-info {

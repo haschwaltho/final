@@ -264,11 +264,53 @@ function renderHistory() {
   conversations.forEach((conv) => {
     const item = document.createElement("div");
     item.className = "history-item" + (conv.id === currentConvId ? " active" : "");
-    item.textContent = conv.title;
-    item.title = conv.title;
-    item.addEventListener("click", () => loadConversation(conv.id));
+
+    const title = document.createElement("span");
+    title.className = "history-item-title";
+    title.textContent = conv.title;
+    title.title = conv.title;
+    title.addEventListener("click", () => loadConversation(conv.id));
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "history-item-delete";
+    deleteBtn.title = "Удалить чат";
+    deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>`;
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteConversation(conv.id);
+    });
+
+    item.appendChild(title);
+    item.appendChild(deleteBtn);
     chatHistory.appendChild(item);
   });
+}
+
+function deleteConversation(id) {
+  conversations = conversations.filter((c) => c.id !== id);
+  saveConversations();
+  if (currentConvId === id) {
+    currentConvId = null;
+    messagesEl.innerHTML = "";
+    welcome.style.display = "flex";
+    messagesEl.style.display = "none";
+  }
+  renderHistory();
+}
+
+function clearAllHistory() {
+  conversations = [];
+  saveConversations();
+  currentConvId = null;
+  messagesEl.innerHTML = "";
+  welcome.style.display = "flex";
+  messagesEl.style.display = "none";
+  renderHistory();
 }
 
 function loadConversation(id) {
@@ -320,5 +362,7 @@ function copyCode(btn) {
 }
 
 /* ── Init ── */
+document.getElementById("clearHistoryBtn").addEventListener("click", clearAllHistory);
+
 renderHistory();
 userInput.focus();
