@@ -10,6 +10,49 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body>
+
+  <!-- Auth Overlay -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-modal">
+      <div class="auth-logo">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+          <circle cx="12" cy="12" r="3" fill="currentColor"/>
+        </svg>
+      </div>
+      <h2 class="auth-brand">AI Chat</h2>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabSignIn" data-i18n="auth_sign_in">Sign In</button>
+        <button class="auth-tab" id="tabSignUp" data-i18n="auth_sign_up">Sign Up</button>
+      </div>
+
+      <form id="signInForm" class="auth-form">
+        <div class="auth-field">
+          <input type="email" id="siEmail" data-i18n-placeholder="auth_email" placeholder="Email" autocomplete="email" required />
+        </div>
+        <div class="auth-field">
+          <input type="password" id="siPassword" data-i18n-placeholder="auth_password" placeholder="Password" autocomplete="current-password" required />
+        </div>
+        <p class="auth-error" id="siError"></p>
+        <button type="submit" class="auth-submit-btn" data-i18n="auth_sign_in">Sign In</button>
+      </form>
+
+      <form id="signUpForm" class="auth-form" style="display:none">
+        <div class="auth-field">
+          <input type="text" id="suUsername" data-i18n-placeholder="auth_username" placeholder="Username" autocomplete="username" required />
+        </div>
+        <div class="auth-field">
+          <input type="email" id="suEmail" data-i18n-placeholder="auth_email" placeholder="Email" autocomplete="email" required />
+        </div>
+        <div class="auth-field">
+          <input type="password" id="suPassword" data-i18n-placeholder="auth_password" placeholder="Password" autocomplete="new-password" minlength="6" required />
+        </div>
+        <p class="auth-error" id="suError"></p>
+        <button type="submit" class="auth-submit-btn" data-i18n="auth_sign_up">Sign Up</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -56,7 +99,7 @@
       </button>
       <div class="user-info" id="userInfo" title="Settings">
         <div class="avatar">A</div>
-        <span>AI Chat</span>
+        <span id="userDisplayName">AI Chat</span>
         <svg class="settings-gear" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>

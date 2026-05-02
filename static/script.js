@@ -34,7 +34,16 @@ const TRANSLATIONS = {
     settings_avatar:        "Аватар",
     settings_avatar_letter: "Буква / символ",
     settings_avatar_color:  "Цвет аватара",
-    settings_saved:         "Настройки сохранены",
+    settings_saved:          "Настройки сохранены",
+    auth_sign_in:            "Войти",
+    auth_sign_up:            "Зарегистрироваться",
+    auth_email:              "Email",
+    auth_password:           "Пароль",
+    auth_username:           "Имя пользователя",
+    auth_sign_out:           "Выйти",
+    auth_error_invalid:      "Неверный email или пароль",
+    auth_error_email_taken:  "Email уже используется",
+    auth_error_short_pw:     "Пароль: минимум 6 символов",
   },
   en: {
     new_chat:               "New Chat",
@@ -70,7 +79,16 @@ const TRANSLATIONS = {
     settings_avatar:        "Avatar",
     settings_avatar_letter: "Letter / symbol",
     settings_avatar_color:  "Avatar color",
-    settings_saved:         "Settings saved",
+    settings_saved:          "Settings saved",
+    auth_sign_in:            "Sign In",
+    auth_sign_up:            "Sign Up",
+    auth_email:              "Email",
+    auth_password:           "Password",
+    auth_username:           "Username",
+    auth_sign_out:           "Sign Out",
+    auth_error_invalid:      "Invalid email or password",
+    auth_error_email_taken:  "Email already taken",
+    auth_error_short_pw:     "Password: min 6 characters",
   },
   kk: {
     new_chat:               "Жаңа чат",
@@ -106,7 +124,16 @@ const TRANSLATIONS = {
     settings_avatar:        "Аватар",
     settings_avatar_letter: "Әріп / символ",
     settings_avatar_color:  "Аватар түсі",
-    settings_saved:         "Параметрлер сақталды",
+    settings_saved:          "Параметрлер сақталды",
+    auth_sign_in:            "Кіру",
+    auth_sign_up:            "Тіркелу",
+    auth_email:              "Email",
+    auth_password:           "Құпия сөз",
+    auth_username:           "Пайдаланушы аты",
+    auth_sign_out:           "Шығу",
+    auth_error_invalid:      "Жарамсыз email немесе құпия сөз",
+    auth_error_email_taken:  "Email тіркелген",
+    auth_error_short_pw:     "Құпия сөз: кемінде 6 таңба",
   },
 };
 
@@ -350,6 +377,19 @@ async function sendMessage() {
       }),
       signal: abortController.signal,
     });
+
+    if (response.status === 401) {
+      currentUser = null;
+      typingEl.remove();
+      bubble.closest(".message")?.remove();
+      isStreaming = false;
+      abortController = null;
+      sendBtn.innerHTML = SEND_ICON;
+      sendBtn.classList.remove("stop");
+      sendBtn.disabled = true;
+      showAuthModal();
+      return;
+    }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -759,7 +799,8 @@ function applySettings() {
   document.documentElement.style.setProperty("--bg-hover",     shadeColor(secondary, 8));
   document.documentElement.style.setProperty("--bg-user-msg",  secondary);
 
-  const letter = s.avatarLetter || "A";
+  const defaultLetter = currentUser ? currentUser.username[0].toUpperCase() : "A";
+  const letter = s.avatarLetter || defaultLetter;
   const color  = s.avatarColor  || "#10a37f";
   document.querySelectorAll(".avatar").forEach((el) => {
     el.textContent = letter;
@@ -792,7 +833,8 @@ function openSettings() {
   customPicker.value = s.customBg || "#212121";
 
   const letterInput = document.getElementById("avatarLetterInput");
-  letterInput.value = s.avatarLetter || "A";
+  const defaultLetter = currentUser ? currentUser.username[0].toUpperCase() : "A";
+  letterInput.value = s.avatarLetter || defaultLetter;
 
   const colorInput = document.getElementById("avatarColorInput");
   colorInput.value = s.avatarColor || "#10a37f";
@@ -853,6 +895,10 @@ function buildSettingsModal() {
           </div>
         </div>
 
+        <div class="settings-section settings-section-account">
+          <button class="settings-logout-btn" id="settingsLogoutBtn" data-i18n="auth_sign_out">Sign Out</button>
+        </div>
+
       </div>
     </div>`;
 
@@ -891,9 +937,138 @@ function buildSettingsModal() {
     saveAppSettings();
     applySettings();
   });
+
+  document.getElementById("settingsLogoutBtn").addEventListener("click", signOut);
 }
 
 document.getElementById("userInfo").addEventListener("click", openSettings);
+
+/* ── Auth ── */
+let currentUser = null;
+
+function showAuthModal() {
+  document.getElementById("authOverlay").classList.remove("hidden");
+}
+
+function hideAuthModal() {
+  document.getElementById("authOverlay").classList.add("hidden");
+}
+
+function updateUserDisplay() {
+  const nameEl = document.getElementById("userDisplayName");
+  if (nameEl && currentUser) nameEl.textContent = currentUser.username;
+  applySettings();
+}
+
+async function checkAuth() {
+  try {
+    const res = await fetch("/api/auth/me");
+    if (res.ok) {
+      currentUser = await res.json();
+      hideAuthModal();
+      initApp();
+    } else {
+      showAuthModal();
+    }
+  } catch {
+    showAuthModal();
+  }
+}
+
+async function signIn(email, password) {
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error);
+  currentUser = data;
+  hideAuthModal();
+  initApp();
+}
+
+async function signUp(email, username, password) {
+  const res = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, username, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error);
+  currentUser = data;
+  hideAuthModal();
+  initApp();
+}
+
+async function signOut() {
+  await fetch("/api/auth/logout", { method: "POST" });
+  currentUser = null;
+  closeSettings();
+  showAuthModal();
+}
+
+function initApp() {
+  updateUserDisplay();
+  renderProjects();
+  renderHistory();
+  userInput.focus();
+}
+
+document.getElementById("signInForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("siEmail").value.trim();
+  const password = document.getElementById("siPassword").value;
+  const errorEl = document.getElementById("siError");
+  const btn = e.target.querySelector(".auth-submit-btn");
+  errorEl.textContent = "";
+  btn.disabled = true;
+  try {
+    await signIn(email, password);
+  } catch {
+    errorEl.textContent = t("auth_error_invalid");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("signUpForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = document.getElementById("suUsername").value.trim();
+  const email = document.getElementById("suEmail").value.trim();
+  const password = document.getElementById("suPassword").value;
+  const errorEl = document.getElementById("suError");
+  const btn = e.target.querySelector(".auth-submit-btn");
+  errorEl.textContent = "";
+  if (password.length < 6) {
+    errorEl.textContent = t("auth_error_short_pw");
+    return;
+  }
+  btn.disabled = true;
+  try {
+    await signUp(email, username, password);
+  } catch (err) {
+    errorEl.textContent = err.message.includes("Email") ? t("auth_error_email_taken") : err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("tabSignIn").addEventListener("click", () => {
+  document.getElementById("tabSignIn").classList.add("active");
+  document.getElementById("tabSignUp").classList.remove("active");
+  document.getElementById("signInForm").style.display = "";
+  document.getElementById("signUpForm").style.display = "none";
+  document.getElementById("siError").textContent = "";
+});
+
+document.getElementById("tabSignUp").addEventListener("click", () => {
+  document.getElementById("tabSignUp").classList.add("active");
+  document.getElementById("tabSignIn").classList.remove("active");
+  document.getElementById("signUpForm").style.display = "";
+  document.getElementById("signInForm").style.display = "none";
+  document.getElementById("suError").textContent = "";
+});
 
 /* ── Init ── */
 document.getElementById("clearHistoryBtn").addEventListener("click", clearAllHistory);
@@ -901,6 +1076,4 @@ document.getElementById("clearHistoryBtn").addEventListener("click", clearAllHis
 buildSettingsModal();
 applySettings();
 applyLang();
-renderProjects();
-renderHistory();
-userInput.focus();
+checkAuth();
