@@ -28,6 +28,13 @@ const TRANSLATIONS = {
     history_cleared_toast:  "История очищена",
     error_server:           "Не удалось подключиться к серверу. Проверьте соединение.",
     default_project_name:   "Новый проект",
+    settings_title:         "Настройки",
+    settings_background:    "Цвет фона",
+    settings_custom:        "Свой цвет",
+    settings_avatar:        "Аватар",
+    settings_avatar_letter: "Буква / символ",
+    settings_avatar_color:  "Цвет аватара",
+    settings_saved:         "Настройки сохранены",
   },
   en: {
     new_chat:               "New Chat",
@@ -57,6 +64,13 @@ const TRANSLATIONS = {
     history_cleared_toast:  "History cleared",
     error_server:           "Could not connect to the server. Check your connection.",
     default_project_name:   "New Project",
+    settings_title:         "Settings",
+    settings_background:    "Background color",
+    settings_custom:        "Custom color",
+    settings_avatar:        "Avatar",
+    settings_avatar_letter: "Letter / symbol",
+    settings_avatar_color:  "Avatar color",
+    settings_saved:         "Settings saved",
   },
   kk: {
     new_chat:               "Жаңа чат",
@@ -86,6 +100,13 @@ const TRANSLATIONS = {
     history_cleared_toast:  "Тарих тазаланды",
     error_server:           "Серверге қосылу мүмкін болмады. Байланысыңызды тексеріңіз.",
     default_project_name:   "Жаңа жоба",
+    settings_title:         "Параметрлер",
+    settings_background:    "Фон түсі",
+    settings_custom:        "Өз түсі",
+    settings_avatar:        "Аватар",
+    settings_avatar_letter: "Әріп / символ",
+    settings_avatar_color:  "Аватар түсі",
+    settings_saved:         "Параметрлер сақталды",
   },
 };
 
@@ -709,9 +730,176 @@ document.addEventListener("click", () => {
   document.getElementById("langDropdown")?.classList.remove("open");
 });
 
+/* ── Settings ── */
+const THEMES = [
+  { id: "default",  label: "Default",  primary: "#212121", sidebar: "#171717", secondary: "#2f2f2f" },
+  { id: "midnight", label: "Midnight", primary: "#141414", sidebar: "#0d0d0d", secondary: "#1e1e1e" },
+  { id: "ocean",    label: "Ocean",    primary: "#1a1f2e", sidebar: "#131824", secondary: "#232b3e" },
+  { id: "grape",    label: "Grape",    primary: "#1e1a2e", sidebar: "#171226", secondary: "#272038" },
+  { id: "forest",   label: "Forest",   primary: "#182219", sidebar: "#111b12", secondary: "#1f2d20" },
+];
+
+let appSettings = JSON.parse(localStorage.getItem("appSettings") || "{}");
+
+function saveAppSettings() {
+  localStorage.setItem("appSettings", JSON.stringify(appSettings));
+}
+
+function applySettings() {
+  const s = appSettings;
+  const theme = THEMES.find((th) => th.id === s.themeId) || THEMES[0];
+  const primary   = s.customBg   || theme.primary;
+  const sidebar   = s.customBg   ? shadeColor(s.customBg, -15) : theme.sidebar;
+  const secondary = s.customBg   ? shadeColor(s.customBg, 10)  : theme.secondary;
+
+  document.documentElement.style.setProperty("--bg-primary",   primary);
+  document.documentElement.style.setProperty("--bg-sidebar",   sidebar);
+  document.documentElement.style.setProperty("--bg-secondary", secondary);
+  document.documentElement.style.setProperty("--bg-input",     secondary);
+  document.documentElement.style.setProperty("--bg-hover",     shadeColor(secondary, 8));
+  document.documentElement.style.setProperty("--bg-user-msg",  secondary);
+
+  const letter = s.avatarLetter || "A";
+  const color  = s.avatarColor  || "#10a37f";
+  document.querySelectorAll(".avatar").forEach((el) => {
+    el.textContent = letter;
+    el.style.background = color;
+  });
+  const previewEl = document.getElementById("avatarPreview");
+  if (previewEl) { previewEl.textContent = letter; previewEl.style.background = color; }
+}
+
+function shadeColor(hex, pct) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, Math.max(0, (n >> 16) + pct));
+  const g = Math.min(255, Math.max(0, ((n >> 8) & 0xff) + pct));
+  const b = Math.min(255, Math.max(0, (n & 0xff) + pct));
+  return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+}
+
+function openSettings() {
+  const overlay = document.getElementById("settingsOverlay");
+  overlay.classList.add("open");
+
+  const s = appSettings;
+  const activeTheme = s.themeId || "default";
+
+  document.querySelectorAll(".theme-swatch").forEach((sw) => {
+    sw.classList.toggle("active", sw.dataset.themeId === activeTheme);
+  });
+
+  const customPicker = document.getElementById("customBgColor");
+  customPicker.value = s.customBg || "#212121";
+
+  const letterInput = document.getElementById("avatarLetterInput");
+  letterInput.value = s.avatarLetter || "A";
+
+  const colorInput = document.getElementById("avatarColorInput");
+  colorInput.value = s.avatarColor || "#10a37f";
+
+  applySettings();
+}
+
+function closeSettings() {
+  document.getElementById("settingsOverlay").classList.remove("open");
+}
+
+function buildSettingsModal() {
+  const overlay = document.createElement("div");
+  overlay.className = "settings-overlay";
+  overlay.id = "settingsOverlay";
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeSettings(); });
+
+  overlay.innerHTML = `
+    <div class="settings-modal">
+      <div class="settings-header">
+        <span class="settings-title" data-i18n="settings_title">Настройки</span>
+        <button class="settings-close" id="settingsClose">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="settings-body">
+
+        <div class="settings-section">
+          <div class="settings-section-label" data-i18n="settings_background">Цвет фона</div>
+          <div class="theme-swatches" id="themeSwatches">
+            ${THEMES.map((th) => `
+              <button class="theme-swatch" data-theme-id="${th.id}" title="${th.label}"
+                style="background: linear-gradient(135deg, ${th.primary} 50%, ${th.sidebar} 50%)">
+              </button>`).join("")}
+          </div>
+          <div class="settings-row">
+            <label class="settings-label" data-i18n="settings_custom">Свой цвет</label>
+            <input type="color" id="customBgColor" class="color-input" />
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-label" data-i18n="settings_avatar">Аватар</div>
+          <div class="avatar-editor">
+            <div class="avatar avatar-preview-large" id="avatarPreview">A</div>
+            <div class="avatar-controls">
+              <div class="settings-row">
+                <label class="settings-label" data-i18n="settings_avatar_letter">Буква / символ</label>
+                <input type="text" id="avatarLetterInput" class="avatar-letter-input" maxlength="2" />
+              </div>
+              <div class="settings-row">
+                <label class="settings-label" data-i18n="settings_avatar_color">Цвет аватара</label>
+                <input type="color" id="avatarColorInput" class="color-input" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("settingsClose").addEventListener("click", closeSettings);
+
+  document.querySelectorAll(".theme-swatch").forEach((sw) => {
+    sw.addEventListener("click", () => {
+      appSettings.themeId = sw.dataset.themeId;
+      appSettings.customBg = null;
+      saveAppSettings();
+      document.querySelectorAll(".theme-swatch").forEach((s) => s.classList.remove("active"));
+      sw.classList.add("active");
+      document.getElementById("customBgColor").value = THEMES.find(th => th.id === sw.dataset.themeId)?.primary || "#212121";
+      applySettings();
+    });
+  });
+
+  document.getElementById("customBgColor").addEventListener("input", (e) => {
+    appSettings.customBg = e.target.value;
+    appSettings.themeId = null;
+    saveAppSettings();
+    document.querySelectorAll(".theme-swatch").forEach((s) => s.classList.remove("active"));
+    applySettings();
+  });
+
+  document.getElementById("avatarLetterInput").addEventListener("input", (e) => {
+    appSettings.avatarLetter = e.target.value || "A";
+    saveAppSettings();
+    applySettings();
+  });
+
+  document.getElementById("avatarColorInput").addEventListener("input", (e) => {
+    appSettings.avatarColor = e.target.value;
+    saveAppSettings();
+    applySettings();
+  });
+}
+
+document.getElementById("userInfo").addEventListener("click", openSettings);
+
 /* ── Init ── */
 document.getElementById("clearHistoryBtn").addEventListener("click", clearAllHistory);
 
+buildSettingsModal();
+applySettings();
 applyLang();
 renderProjects();
 renderHistory();
