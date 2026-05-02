@@ -1,22 +1,30 @@
 import os
 import json
 import sqlite3
+import logging
 import bcrypt
 import requests
 from functools import wraps
 from flask import Flask, render_template, request, Response, stream_with_context, jsonify, session
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Anchor paths to this file so they resolve correctly on Vercel
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_HERE)
+
 app = Flask(
     __name__,
-    template_folder="../templates",
-    static_folder="../static"
+    template_folder=os.path.join(_ROOT, "templates"),
+    static_folder=os.path.join(_ROOT, "static"),
 )
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-please-change")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL")
-# SQLite in /tmp for Vercel (ephemeral — swap DB_PATH for a hosted DB in production)
+# /tmp is writable on Vercel but ephemeral — set DB_PATH to a hosted DB for persistence
 DB_PATH = os.environ.get("DB_PATH", "/tmp/users.db")
 
 
@@ -41,6 +49,13 @@ def init_db():
     conn.close()
 
 
+# Best-effort module-level init (catches /tmp permission errors gracefully)
+try:
+    init_db()
+except Exception as _e:
+    logger.error("module-level init_db failed: %s", _e)
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -57,7 +72,12 @@ def index():
 
 @app.route("/api/auth/register", methods=["POST"])
 def register():
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        logger.error("init_db in register: %s", e)
+        return jsonify({"error": "Database unavailable"}), 500
+
     data = request.get_json() or {}
     email = data.get("email", "").strip().lower()
     username = data.get("username", "").strip()
@@ -68,19 +88,28 @@ def register():
     if len(password) < 6:
         return jsonify({"error": "Password must be at least 6 characters"}), 400
 
-    pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    try:
+        pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    except Exception as e:
+        logger.error("bcrypt error: %s", e)
+        return jsonify({"error": "Server error"}), 500
 
     try:
         conn = get_db()
         conn.execute(
             "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",
-            (email, username, pw_hash)
+            (email, username, pw_hash),
         )
         conn.commit()
-        user = conn.execute("SELECT id, email, username FROM users WHERE email = ?", (email,)).fetchone()
+        user = conn.execute(
+            "SELECT id, email, username FROM users WHERE email = ?", (email,)
+        ).fetchone()
         conn.close()
     except sqlite3.IntegrityError:
         return jsonify({"error": "Email already registered"}), 409
+    except Exception as e:
+        logger.error("register DB error: %s", e)
+        return jsonify({"error": "Database error"}), 500
 
     session["user_id"] = user["id"]
     session["username"] = user["username"]
@@ -89,14 +118,26 @@ def register():
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        logger.error("init_db in login: %s", e)
+        return jsonify({"error": "Database unavailable"}), 500
+
     data = request.get_json() or {}
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")
 
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-    conn.close()
+    if not email or not password:
+        return jsonify({"error": "All fields required"}), 400
+
+    try:
+        conn = get_db()
+        user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        conn.close()
+    except Exception as e:
+        logger.error("login DB error: %s", e)
+        return jsonify({"error": "Database error"}), 500
 
     if not user or not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
         return jsonify({"error": "Invalid email or password"}), 401
@@ -116,9 +157,17 @@ def logout():
 def me():
     if "user_id" not in session:
         return jsonify({"error": "Not authenticated"}), 401
-    conn = get_db()
-    user = conn.execute("SELECT id, email, username FROM users WHERE id = ?", (session["user_id"],)).fetchone()
-    conn.close()
+    try:
+        init_db()
+        conn = get_db()
+        user = conn.execute(
+            "SELECT id, email, username FROM users WHERE id = ?", (session["user_id"],)
+        ).fetchone()
+        conn.close()
+    except Exception as e:
+        logger.error("me DB error: %s", e)
+        session.clear()
+        return jsonify({"error": "Not authenticated"}), 401
     if not user:
         session.clear()
         return jsonify({"error": "Not authenticated"}), 401
@@ -135,19 +184,14 @@ def chat():
     def generate():
         try:
             if not N8N_WEBHOOK_URL:
-                error_message = "N8N_WEBHOOK_URL is not set in Vercel environment variables."
-                yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'message': 'N8N_WEBHOOK_URL is not configured.'})}\n\n"
                 return
 
             response = requests.post(
                 N8N_WEBHOOK_URL,
-                json={
-                    "sessionId": session_id,
-                    "messages": messages
-                },
-                timeout=60
+                json={"sessionId": session_id, "messages": messages},
+                timeout=55,
             )
-
             response.raise_for_status()
 
             try:
@@ -166,16 +210,17 @@ def chat():
             yield f"data: {json.dumps({'type': 'delta', 'content': answer})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
+        except requests.exceptions.Timeout:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'AI service timed out. Please try again.'})}\n\n"
         except requests.exceptions.RequestException as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            logger.error("n8n request error: %s", e)
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to reach AI service.'})}\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            logger.error("chat error: %s", e)
+            yield f"data: {json.dumps({'type': 'error', 'message': 'An unexpected error occurred.'})}\n\n"
 
     return Response(
         stream_with_context(generate()),
         mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
